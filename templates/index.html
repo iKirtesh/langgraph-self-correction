@@ -1,0 +1,1241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Self-Correction & Reflexion Arena</title>
+    <!-- Google Fonts Inter & JetBrains Mono -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    
+    <style>
+        /* ==========================================
+           1. MODERN CSS TOKENS & CLASSIC STYLING
+           ========================================== */
+        :root {
+            --bg-main: #040711;
+            --bg-sidebar: #080c1e;
+            --bg-card: rgba(15, 23, 42, 0.45);
+            --bg-card-hover: rgba(30, 41, 59, 0.6);
+            --border-glow: rgba(255, 255, 255, 0.08);
+            
+            --color-primary: #00f2fe;
+            --color-secondary: #4facfe;
+            --color-accent: #f093fb;
+            --color-success: #05f3a6;
+            --color-danger: #ff4b72;
+            --color-warning: #ffb300;
+            
+            --text-main: #f1f5f9;
+            --text-dim: #94a3b8;
+            
+            --glow-cyan: 0 0 15px rgba(0, 242, 254, 0.35);
+            --glow-purple: 0 0 15px rgba(240, 147, 251, 0.35);
+            --glow-green: 0 0 15px rgba(5, 243, 166, 0.35);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, sans-serif;
+            background-color: var(--bg-main);
+            color: var(--text-main);
+            height: 100vh;
+            display: flex;
+            overflow: hidden;
+        }
+
+        .app-container {
+            display: flex;
+            width: 100%;
+            height: 100%;
+        }
+
+        /* Left Sidebar - Configurations & Graph Tracking */
+        .sidebar {
+            width: 35%;
+            min-width: 360px;
+            background-color: var(--bg-sidebar);
+            border-right: 1px solid var(--border-glow);
+            display: flex;
+            flex-direction: column;
+            padding: 24px;
+            overflow-y: auto;
+            gap: 24px;
+        }
+
+        /* Right Panel - Playground Dialogues */
+        .main-panel {
+            width: 65%;
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            position: relative;
+            background: radial-gradient(circle at 50% 120%, rgba(0, 242, 254, 0.03), transparent 60%);
+        }
+
+        h1, h2, h3 {
+            font-weight: 600;
+            letter-spacing: -0.5px;
+        }
+
+        .sidebar-title {
+            font-size: 1.25rem;
+            color: #fff;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 6px;
+        }
+
+        .subtitle {
+            font-size: 0.85rem;
+            color: var(--text-dim);
+            line-height: 1.4;
+        }
+
+        /* Glassmorphic Panel Card */
+        .panel {
+            background: var(--bg-card);
+            border: 1px solid var(--border-glow);
+            border-radius: 16px;
+            backdrop-filter: blur(20px);
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            transition: all 0.3s ease;
+        }
+
+        .panel-header {
+            font-size: 0.95rem;
+            color: #fff;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            padding-bottom: 10px;
+        }
+
+        /* ==========================================
+           2. ARENA STATE FLOW DIAGRAMS
+           ========================================== */
+        .graph-wrapper {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 10px 0;
+        }
+
+        svg.agent-graph {
+            width: 100%;
+            height: auto;
+            max-height: 250px;
+        }
+
+        .node-rect {
+            fill: rgba(30, 41, 59, 0.5);
+            stroke: rgba(255, 255, 255, 0.15);
+            stroke-width: 2;
+            rx: 8;
+            transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .node-circle {
+            fill: rgba(30, 41, 59, 0.5);
+            stroke-width: 2;
+            transition: all 0.5s ease;
+        }
+
+        .node-circle.start-node { stroke: var(--color-success); }
+        .node-circle.end-node { stroke: var(--color-danger); }
+
+        .node-text {
+            fill: var(--text-main);
+            font-size: 10px;
+            font-weight: 500;
+            text-anchor: middle;
+            dominant-baseline: middle;
+            font-family: 'Inter', sans-serif;
+            pointer-events: none;
+        }
+
+        .edge-path {
+            fill: none;
+            stroke: rgba(255, 255, 255, 0.15);
+            stroke-width: 2;
+            marker-end: url(#arrow);
+            transition: stroke 0.5s ease;
+        }
+
+        /* Dynamic Node Active classes */
+        .node-active-cyan {
+            fill: rgba(0, 242, 254, 0.12);
+            stroke: var(--color-primary);
+            filter: drop-shadow(0 0 10px rgba(0, 242, 254, 0.6));
+            animation: pulse-cyan 1.5s infinite alternate;
+        }
+
+        .node-active-purple {
+            fill: rgba(240, 147, 251, 0.12);
+            stroke: var(--color-accent);
+            filter: drop-shadow(0 0 10px rgba(240, 147, 251, 0.6));
+            animation: pulse-purple 1.5s infinite alternate;
+        }
+
+        .node-active-green {
+            fill: rgba(5, 243, 166, 0.12);
+            stroke: var(--color-success);
+            filter: drop-shadow(0 0 10px rgba(5, 243, 166, 0.6));
+            animation: pulse-green 1.5s infinite alternate;
+        }
+
+        .edge-active {
+            stroke: var(--color-primary);
+            stroke-dasharray: 6, 6;
+            animation: dash-move 1.5s linear infinite;
+        }
+
+        @keyframes pulse-cyan { to { filter: drop-shadow(0 0 2px rgba(0, 242, 254, 0.2)); } }
+        @keyframes pulse-purple { to { filter: drop-shadow(0 0 2px rgba(240, 147, 251, 0.2)); } }
+        @keyframes pulse-green { to { filter: drop-shadow(0 0 2px rgba(5, 243, 166, 0.2)); } }
+        @keyframes dash-move { to { stroke-dashoffset: -12; } }
+
+        /* Mode Selection Buttons */
+        .mode-toggle-group {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        .btn-toggle {
+            background-color: rgba(255, 255, 255, 0.03);
+            border: 1px solid var(--border-glow);
+            border-radius: 10px;
+            color: var(--text-dim);
+            padding: 10px;
+            font-size: 0.82rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .btn-toggle.active {
+            background-color: rgba(0, 242, 254, 0.08);
+            border-color: var(--color-primary);
+            color: #fff;
+            box-shadow: var(--glow-cyan);
+        }
+
+        /* Config list styling */
+        .config-list {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .config-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-size: 0.85rem;
+        }
+
+        .config-label { color: var(--text-dim); }
+        .config-value { color: #fff; font-weight: 500; }
+
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .status-badge.green { background-color: rgba(5, 243, 166, 0.1); color: var(--color-success); }
+        .status-badge.yellow { background-color: rgba(255, 179, 0, 0.1); color: var(--color-warning); }
+        .status-badge.red { background-color: rgba(255, 75, 114, 0.1); color: var(--color-danger); }
+
+        .text-input {
+            width: 100%;
+            background-color: rgba(0, 0, 0, 0.3);
+            border: 1px solid var(--border-glow);
+            border-radius: 8px;
+            padding: 8px 12px;
+            color: #fff;
+            font-family: inherit;
+            font-size: 0.85rem;
+            outline: none;
+            transition: border-color 0.3s ease;
+        }
+
+        select.text-input {
+            cursor: pointer;
+            -webkit-appearance: none;
+            appearance: none;
+            background-image: url("data:image/svg+xml;utf8,<svg fill='white' height='24' viewBox='0 0 24 24' width='24' xmlns='http://www.w3.org/2000/svg'><path d='M7 10l5 5 5-5z'/><path d='M0 0h24v24H0z' fill='none'/></svg>");
+            background-repeat: no-repeat;
+            background-position: right 10px center;
+            background-size: 16px;
+            padding-right: 30px;
+        }
+
+        select.text-input option {
+            background-color: #080c1e;
+            color: #fff;
+        }
+
+        .text-input:focus {
+            border-color: var(--color-primary);
+        }
+
+        /* ==========================================
+           3. CHAT PLAYGROUND WINDOW
+           ========================================== */
+        .chat-header {
+            padding: 24px;
+            border-bottom: 1px solid var(--border-glow);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .chat-title { font-size: 1.1rem; color: #fff; }
+
+        .active-indicator {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.8rem;
+            color: var(--text-dim);
+        }
+
+        .pulse-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background-color: var(--color-success);
+            box-shadow: var(--glow-green);
+            animation: pulse-dot-anim 1.5s infinite;
+        }
+
+        @keyframes pulse-dot-anim {
+            0%, 100% { transform: scale(0.95); opacity: 0.5; }
+            50% { transform: scale(1.15); opacity: 1; }
+        }
+
+        .chat-messages {
+            flex: 1;
+            padding: 24px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            scroll-behavior: smooth;
+        }
+
+        .chat-messages::-webkit-scrollbar { width: 6px; }
+        .chat-messages::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.1); border-radius: 4px; }
+
+        /* Message Bubbles styling */
+        .message {
+            max-width: 85%;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            animation: fade-rise 0.4s ease forwards;
+            opacity: 0;
+            transform: translateY(10px);
+        }
+
+        @keyframes fade-rise { to { opacity: 1; transform: translateY(0); } }
+
+        .message.user { align-self: flex-end; }
+        .message.agent { align-self: flex-start; width: 100%; }
+
+        .bubble {
+            padding: 16px 20px;
+            border-radius: 16px;
+            font-size: 0.92rem;
+            line-height: 1.5;
+        }
+
+        .message.user .bubble {
+            background: linear-gradient(135deg, var(--color-secondary), var(--color-primary));
+            color: #050b18;
+            border-bottom-right-radius: 4px;
+            font-weight: 500;
+            box-shadow: 0 4px 15px rgba(0, 242, 254, 0.2);
+        }
+
+        .message.agent .bubble {
+            background-color: var(--bg-card);
+            border: 1px solid var(--border-glow);
+            color: var(--text-main);
+            border-bottom-left-radius: 4px;
+        }
+
+        .message-sender { font-size: 0.75rem; color: var(--text-dim); font-weight: 500; }
+        .message.user .message-sender { text-align: right; }
+
+        /* Floating Input panel */
+        .chat-input-wrapper {
+            padding: 24px;
+            border-top: 1px solid var(--border-glow);
+            background: linear-gradient(to top, var(--bg-main) 60%, transparent);
+        }
+
+        .chat-input-panel {
+            display: flex;
+            background: rgba(10, 16, 36, 0.85);
+            border: 1px solid var(--border-glow);
+            border-radius: 16px;
+            padding: 8px 10px;
+            align-items: center;
+            gap: 10px;
+            backdrop-filter: blur(10px);
+        }
+
+        .main-chat-input {
+            flex: 1;
+            background: transparent;
+            border: none;
+            outline: none;
+            color: #fff;
+            font-size: 0.95rem;
+            padding: 8px 10px;
+        }
+
+        .send-btn {
+            width: 40px;
+            height: 40px;
+            border-radius: 12px;
+            background: linear-gradient(135deg, var(--color-secondary), var(--color-primary));
+            border: none;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #000;
+            transition: all 0.3s ease;
+        }
+
+        .send-btn:hover {
+            transform: scale(1.05);
+            box-shadow: var(--glow-cyan);
+        }
+
+        .send-btn svg { width: 18px; height: 18px; fill: currentColor; }
+
+        .node-stream-tracker {
+            display: none;
+            align-self: flex-start;
+            padding: 10px 16px;
+            border-radius: 20px;
+            background-color: rgba(255, 255, 255, 0.03);
+            border: 1px solid var(--border-glow);
+            font-size: 0.78rem;
+            color: var(--text-dim);
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+
+        .node-stream-tracker.visible {
+            display: inline-flex;
+            animation: pulse-stream-tracker 1.5s infinite;
+        }
+
+        @keyframes pulse-stream-tracker {
+            0%, 100% { border-color: rgba(255, 255, 255, 0.08); }
+            50% { border-color: var(--color-primary); }
+        }
+
+        .small-spinner {
+            width: 14px;
+            height: 14px;
+            border: 2px solid rgba(0, 242, 254, 0.25);
+            border-top: 2px solid var(--color-primary);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* Splash Page styles */
+        .prompt-card {
+            background: rgba(15, 23, 42, 0.35);
+            border: 1px solid var(--border-glow);
+            border-radius: 12px;
+            padding: 12px 16px;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 4px;
+        }
+
+        .prompt-card:hover {
+            background: rgba(30, 41, 59, 0.65);
+            border-color: rgba(0, 242, 254, 0.3);
+            box-shadow: 0 4px 20px rgba(0, 242, 254, 0.05);
+            transform: translateY(-2px);
+        }
+
+        /* ==========================================
+           4. VISUAL CODE / RAG CARD LOG COMPONENT
+           ========================================== */
+        .attempt-header {
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--color-accent);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .code-container {
+            font-family: 'JetBrains Mono', monospace;
+            background: #02040a;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+            padding: 14px;
+            font-size: 0.82rem;
+            color: #2ed573;
+            overflow-x: auto;
+            white-space: pre;
+            margin-bottom: 12px;
+        }
+
+        .terminal-container {
+            font-family: 'JetBrains Mono', monospace;
+            background: #080c16;
+            border-left: 3px solid var(--color-success);
+            border-radius: 6px;
+            padding: 12px;
+            font-size: 0.8rem;
+            color: #d1d8e0;
+            margin-bottom: 16px;
+        }
+
+        .terminal-container.error-trace {
+            border-left-color: var(--color-danger);
+            color: #ff4d4d;
+            background: rgba(255, 75, 114, 0.04);
+        }
+
+        /* CRAG Grader Grid styles */
+        .grader-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 12px;
+            margin-bottom: 14px;
+        }
+
+        .grader-card {
+            background: rgba(255, 255, 255, 0.01);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+            padding: 12px 14px;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .grader-badge-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .search-trigger-card {
+            background: rgba(255, 179, 0, 0.04);
+            border: 1px dashed var(--color-warning);
+            border-radius: 10px;
+            padding: 14px;
+            font-size: 0.85rem;
+            color: #fff;
+            margin-bottom: 14px;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="app-container">
+        <!-- ==========================================
+             LEFT SIDEBAR PANEL
+             ========================================== -->
+        <aside class="sidebar">
+            <div>
+                <h1 class="sidebar-title">🦜🔗 Loop Arena</h1>
+                <p class="subtitle">Self-Correction & Reflexion loops dashboard. Swap pipelines and LLMs in real-time.</p>
+            </div>
+
+            <!-- Mode Selector Switch -->
+            <section class="panel">
+                <div class="panel-header">
+                    <span>Select Playground Mode</span>
+                </div>
+                <div class="mode-toggle-group">
+                    <button class="btn-toggle active" id="btn-toggle-code">
+                        <span style="font-size: 1.3rem;">💻</span>
+                        <span>Code Compiler</span>
+                    </button>
+                    <button class="btn-toggle" id="btn-toggle-crag">
+                        <span style="font-size: 1.3rem;">🔍</span>
+                        <span>Corrective RAG</span>
+                    </button>
+                </div>
+            </section>
+
+            <!-- Active Stateful Flowchart -->
+            <section class="panel">
+                <div class="panel-header">
+                    <span>Active Graph Sequence</span>
+                    <span class="status-badge green" id="graph-state-badge">Idle</span>
+                </div>
+                
+                <div class="graph-wrapper" id="graph-wrapper-code">
+                    <!-- Code loop SVG -->
+                    <svg class="agent-graph" viewBox="0 0 320 230">
+                        <defs>
+                            <marker id="arrow" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                                <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="rgba(255, 255, 255, 0.35)"/>
+                            </marker>
+                        </defs>
+                        <path id="code-flow-start" class="edge-path" d="M 160,32 L 160,55"/>
+                        <path id="code-flow-gen" class="edge-path" d="M 160,95 L 160,120"/>
+                        <!-- Loop back edge -->
+                        <path id="code-flow-loop" class="edge-path" d="M 110,142 C 50,142 50,75 110,75"/>
+                        <path id="code-flow-end" class="edge-path" d="M 160,165 L 160,195"/>
+
+                        <circle class="node-circle start-node" cx="160" cy="20" r="12"/>
+                        <text class="node-text" x="160" y="20">START</text>
+
+                        <rect id="code-node-generate" class="node-rect" x="110" y="55" width="100" height="40"/>
+                        <text class="node-text" x="160" y="75">generate_code</text>
+
+                        <rect id="code-node-execute" class="node-rect" x="110" y="120" width="100" height="45"/>
+                        <text class="node-text" x="160" y="142">execute_code 🧪</text>
+
+                        <circle class="node-circle end-node" cx="160" cy="207" r="12"/>
+                        <text class="node-text" x="160" y="207">END</text>
+                    </svg>
+                </div>
+
+                <div class="graph-wrapper" id="graph-wrapper-crag" style="display: none;">
+                    <!-- CRAG loop SVG -->
+                    <svg class="agent-graph" viewBox="0 0 320 230">
+                        <path id="crag-flow-start" class="edge-path" d="M 70,30 L 70,55"/>
+                        <path id="crag-flow-grade" class="edge-path" d="M 70,95 L 70,125"/>
+                        <path id="crag-flow-search" class="edge-path" d="M 120,145 L 200,145"/>
+                        <path id="crag-flow-direct" class="edge-path" d="M 70,165 L 70,190"/>
+                        <path id="crag-flow-end" class="edge-path" d="M 250,165 L 250,190"/>
+                        <!-- Hallucination loop back -->
+                        <path id="crag-flow-hallucinate" class="edge-path" d="M 200,85 C 160,85 160,195 200,195"/>
+
+                        <circle class="node-circle start-node" cx="70" cy="18" r="10"/>
+                        <text class="node-text" x="70" y="18">START</text>
+
+                        <rect id="crag-node-retrieve" class="node-rect" x="25" y="55" width="90" height="40"/>
+                        <text class="node-text" x="70" y="75">retrieve</text>
+
+                        <rect id="crag-node-grade" class="node-rect" x="20" y="125" width="100" height="40"/>
+                        <text class="node-text" x="70" y="145">grade_docs ⚖️</text>
+
+                        <rect id="crag-node-search" class="node-rect" x="200" y="125" width="100" height="40"/>
+                        <text class="node-text" x="250" y="145">web_search 🌐</text>
+
+                        <rect id="crag-node-generate" class="node-rect" x="200" y="55" width="100" height="40"/>
+                        <text class="node-text" x="250" y="75">generate</text>
+
+                        <rect id="crag-node-hallucination" class="node-rect" x="195" y="180" width="110" height="40"/>
+                        <text class="node-text" x="250" y="200">grade_gen 🛡️</text>
+                    </svg>
+                </div>
+            </section>
+
+            <!-- Configurations Card -->
+            <section class="panel">
+                <div class="panel-header">
+                    <span>System Configuration</span>
+                </div>
+                <ul class="config-list">
+                    <li class="config-item" style="flex-direction: column; align-items: flex-start; gap: 8px;">
+                        <span class="config-label">Active LLM Engine</span>
+                        <select id="select-provider" class="text-input" style="width: 100%; cursor: pointer;">
+                            <option value="gemini">Google Gemini 2.5 Flash</option>
+                            <option value="groq">Groq Llama 3.3 70B</option>
+                        </select>
+                    </li>
+                    <li class="config-item">
+                        <span class="config-label">Gemini API Key</span>
+                        <span class="config-value" id="config-gemini-status">
+                            <span class="status-badge yellow">Loading...</span>
+                        </span>
+                    </li>
+                    <li class="config-item">
+                        <span class="config-label">Groq API Key</span>
+                        <span class="config-value" id="config-groq-status">
+                            <span class="status-badge yellow">Loading...</span>
+                        </span>
+                    </li>
+                </ul>
+            </section>
+        </aside>
+
+        <!-- ==========================================
+             RIGHT CHAT WINDOW PANEL
+             ========================================== -->
+        <main class="main-panel">
+            <!-- Header -->
+            <header class="chat-header">
+                <div>
+                    <h2 class="chat-title" id="chat-mode-title">💻 Code-Correction Playground</h2>
+                    <div class="active-indicator">
+                        <div class="pulse-dot"></div>
+                        <span id="session-status-text">Isolated Sandbox Active</span>
+                    </div>
+                </div>
+                <button id="btn-restart-arena" class="btn" style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-glow); border-radius: 8px; font-size: 0.8rem; padding: 6px 12px; color: #fff; cursor: pointer; transition: all 0.3s ease;">Reset Arena</button>
+            </header>
+
+            <!-- Dialog Message list -->
+            <div class="chat-messages" id="chat-scroller">
+                <!-- Gorgeous Splash Landing View -->
+                <div id="chat-splash" class="splash-view" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 24px; margin: auto; max-width: 520px; text-align: center; width: 100%;">
+                    <div style="font-size: 3rem; animation: float-icon 3s ease-in-out infinite;">🤖🔄</div>
+                    <div>
+                        <h2 style="font-size: 1.5rem; color: #fff; margin-bottom: 8px; font-weight: 600;">Self-Correction Loops Arena</h2>
+                        <p style="color: var(--text-dim); font-size: 0.9rem; line-height: 1.5;" id="splash-desc">
+                            Witness state graphs self-auditing compile outputs in real-time. Pick an execution script or RAG gap challenge below to launch!
+                        </p>
+                    </div>
+                    
+                    <div style="display: grid; grid-template-columns: 1fr; gap: 12px; width: 100%; margin-top: 10px;" id="splash-prompts-container">
+                        <!-- Code Prompts -->
+                        <div class="prompt-card code-prompt-card" onclick="setQuickPrompt('Write a Python script that calculates factorial, but force a NameError by referencing an undefined variable inside a log print statement first.')">
+                            <span style="font-size: 1.4rem;">🐛</span>
+                            <div style="text-align: left;">
+                                <strong style="font-size: 0.82rem; color: var(--color-primary); display: block; margin-bottom: 2px;">Force Traceback Repair</strong>
+                                <span style="font-size: 0.76rem; color: var(--text-dim);">Trigger NameError and let LLM self-correct</span>
+                            </div>
+                        </div>
+
+                        <div class="prompt-card code-prompt-card" onclick="setQuickPrompt('Write a Python script that scrapes tables, but intentionally use an invalid index boundary to throw an IndexError.')">
+                            <span style="font-size: 1.4rem;">🧪</span>
+                            <div style="text-align: left;">
+                                <strong style="font-size: 0.82rem; color: var(--color-primary); display: block; margin-bottom: 2px;">Index Boundary Crash</strong>
+                                <span style="font-size: 0.76rem; color: var(--text-dim);">Compile IndexError and audit script limits</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Floating Input panel -->
+            <div class="chat-input-wrapper">
+                <div class="node-stream-tracker" id="query-loader">
+                    <div class="small-spinner"></div>
+                    <span id="query-loader-text">Compiling sandbox environment...</span>
+                </div>
+
+                <div class="chat-input-panel">
+                    <input type="text" id="chat-input" class="main-chat-input" placeholder="Ask me to compile/run code..." autocomplete="off">
+                    <button id="btn-send" class="send-btn">
+                        <svg viewBox="0 0 24 24">
+                            <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- ==========================================
+         5. INTERACTIVE JS ARENA LOGIC
+         ========================================== -->
+    <script>
+        // DOM Handles
+        const btnToggleCode = document.getElementById('btn-toggle-code');
+        const btnToggleCrag = document.getElementById('btn-toggle-crag');
+        const graphWrapperCode = document.getElementById('graph-wrapper-code');
+        const graphWrapperCrag = document.getElementById('graph-wrapper-crag');
+        const chatModeTitle = document.getElementById('chat-mode-title');
+        const chatInput = document.getElementById('chat-input');
+        const btnSend = document.getElementById('btn-send');
+        const chatScroller = document.getElementById('chat-scroller');
+        const queryLoader = document.getElementById('query-loader');
+        const queryLoaderText = document.getElementById('query-loader-text');
+        const selectProvider = document.getElementById('select-provider');
+        const configGeminiStatus = document.getElementById('config-gemini-status');
+        const configGroqStatus = document.getElementById('config-groq-status');
+        const graphStateBadge = document.getElementById('graph-state-badge');
+        const btnRestartArena = document.getElementById('btn-restart-arena');
+        const splashPromptsContainer = document.getElementById('splash-prompts-container');
+        const splashDesc = document.getElementById('splash-desc');
+
+        // State handles
+        let currentMode = 'code'; // 'code' or 'crag'
+        let isProcessing = false;
+
+        // Toggle Modes click events
+        btnToggleCode.addEventListener('click', () => {
+            if (currentMode === 'code') return;
+            currentMode = 'code';
+            btnToggleCode.classList.add('active');
+            btnToggleCrag.classList.remove('active');
+            graphWrapperCode.style.display = 'block';
+            graphWrapperCrag.style.display = 'none';
+            chatModeTitle.innerHTML = '💻 Code-Correction Playground';
+            chatInput.placeholder = 'Ask me to compile/run code...';
+            resetArenaView();
+        });
+
+        btnToggleCrag.addEventListener('click', () => {
+            if (currentMode === 'crag') return;
+            currentMode = 'crag';
+            btnToggleCrag.classList.add('active');
+            btnToggleCode.classList.remove('active');
+            graphWrapperCrag.style.display = 'block';
+            graphWrapperCode.style.display = 'none';
+            chatModeTitle.innerHTML = '🔍 Corrective RAG (CRAG) Playground';
+            chatInput.placeholder = 'Ask factual questions containing info gaps...';
+            resetArenaView();
+        });
+
+        // Initialize configs
+        fetchConfigs();
+
+        async function fetchConfigs() {
+            try {
+                const res = await fetch('/api/config');
+                const data = await res.json();
+                
+                const geminiOpt = selectProvider.querySelector('option[value="gemini"]');
+                const groqOpt = selectProvider.querySelector('option[value="groq"]');
+                
+                if (data.google_key_present) {
+                    configGeminiStatus.innerHTML = '<span class="status-badge green">Connected</span>';
+                    geminiOpt.textContent = "Google Gemini 2.5 Flash";
+                } else {
+                    configGeminiStatus.innerHTML = '<span class="status-badge yellow">Mock Mode</span>';
+                    geminiOpt.textContent = "Google Gemini 2.5 (Mock)";
+                }
+                
+                if (data.groq_key_present) {
+                    configGroqStatus.innerHTML = '<span class="status-badge green">Connected</span>';
+                    groqOpt.textContent = "Groq Llama 3.3 70B";
+                } else {
+                    configGroqStatus.innerHTML = '<span class="status-badge yellow">Mock Mode</span>';
+                    groqOpt.textContent = "Groq Llama 3.3 (Mock)";
+                }
+            } catch (e) {
+                configGeminiStatus.innerHTML = '<span class="status-badge red">Offline</span>';
+                configGroqStatus.innerHTML = '<span class="status-badge red">Offline</span>';
+            }
+        }
+
+        // Set shortcut prompt text
+        window.setQuickPrompt = function(text) {
+            chatInput.value = text;
+            chatInput.focus();
+        };
+
+        // Reset the Chat Sandbox Page
+        function resetArenaView() {
+            clearGraphVisualStates();
+            
+            let promptsHtml = '';
+            if (currentMode === 'code') {
+                splashDesc.textContent = "Witness state graphs self-auditing compile outputs in real-time. Pick an execution script or compiler crash below to launch!";
+                promptsHtml = `
+                    <div class="prompt-card code-prompt-card" onclick="setQuickPrompt('Write a Python script that calculates factorial, but force a NameError by referencing an undefined variable inside a log print statement first.')">
+                        <span style="font-size: 1.4rem;">🐛</span>
+                        <div style="text-align: left;">
+                            <strong style="font-size: 0.82rem; color: var(--color-primary); display: block; margin-bottom: 2px;">Force Traceback Repair</strong>
+                            <span style="font-size: 0.76rem; color: var(--text-dim);">Trigger NameError and let LLM self-correct</span>
+                        </div>
+                    </div>
+                    <div class="prompt-card code-prompt-card" onclick="setQuickPrompt('Write a Python script that scrapes tables, but intentionally use an invalid index boundary to throw an IndexError.')">
+                        <span style="font-size: 1.4rem;">🧪</span>
+                        <div style="text-align: left;">
+                            <strong style="font-size: 0.82rem; color: var(--color-primary); display: block; margin-bottom: 2px;">Index Boundary Crash</strong>
+                            <span style="font-size: 0.76rem; color: var(--text-dim);">Compile IndexError and audit script limits</span>
+                        </div>
+                    </div>
+                `;
+            } else {
+                splashDesc.textContent = "Explore document grading, information gaps evaluation, and Self-RAG hallucination ratings. Pick a query context below!";
+                promptsHtml = `
+                    <div class="prompt-card crag-prompt-card" onclick="setQuickPrompt('What is OpenAI\\'s latest valuation in 2026?')">
+                        <span style="font-size: 1.4rem;">💰</span>
+                        <div style="text-align: left;">
+                            <strong style="font-size: 0.82rem; color: var(--color-accent); display: block; margin-bottom: 2px;">Valuation Info Gaps</strong>
+                            <span style="font-size: 0.76rem; color: var(--text-dim);">Local doc stops in 2024. Force Web Search!</span>
+                        </div>
+                    </div>
+                    <div class="prompt-card crag-prompt-card" onclick="setQuickPrompt('Explain how stateful LangGraph agents work based on retrieved documentation.')">
+                        <span style="font-size: 1.4rem;">⚖️</span>
+                        <div style="text-align: left;">
+                            <strong style="font-size: 0.82rem; color: var(--color-accent); display: block; margin-bottom: 2px;">Document Grounding</strong>
+                            <span style="font-size: 0.76rem; color: var(--text-dim);">Pass local docs immediately. Skip search.</span>
+                        </div>
+                    </div>
+                `;
+            }
+            
+            chatScroller.innerHTML = `
+                <div id="chat-splash" class="splash-view" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 24px; margin: auto; max-width: 520px; text-align: center; width: 100%;">
+                    <div style="font-size: 3rem; animation: float-icon 3s ease-in-out infinite;">🤖🔄</div>
+                    <div>
+                        <h2 style="font-size: 1.5rem; color: #fff; margin-bottom: 8px; font-weight: 600;">Self-Correction Loops Arena</h2>
+                        <p style="color: var(--text-dim); font-size: 0.9rem; line-height: 1.5;" id="splash-desc">${splashDesc.textContent}</p>
+                    </div>
+                    <div style="display: grid; grid-template-columns: 1fr; gap: 12px; width: 100%; margin-top: 10px;" id="splash-prompts-container">
+                        ${promptsHtml}
+                    </div>
+                </div>
+            `;
+        }
+
+        btnRestartArena.addEventListener('click', resetArenaView);
+
+        // Clear graph SVG visual highlights
+        function clearGraphVisualStates() {
+            graphStateBadge.className = 'status-badge green';
+            graphStateBadge.textContent = 'Idle';
+            
+            // Code loops SVG
+            document.getElementById('code-node-generate').className.baseVal = 'node-rect';
+            document.getElementById('code-node-execute').className.baseVal = 'node-rect';
+            document.getElementById('code-flow-start').className.baseVal = 'edge-path';
+            document.getElementById('code-flow-gen').className.baseVal = 'edge-path';
+            document.getElementById('code-flow-loop').className.baseVal = 'edge-path';
+            document.getElementById('code-flow-end').className.baseVal = 'edge-path';
+            
+            // CRAG SVG
+            document.getElementById('crag-node-retrieve').className.baseVal = 'node-rect';
+            document.getElementById('crag-node-grade').className.baseVal = 'node-rect';
+            document.getElementById('crag-node-search').className.baseVal = 'node-rect';
+            document.getElementById('crag-node-generate').className.baseVal = 'node-rect';
+            document.getElementById('crag-node-hallucination').className.baseVal = 'node-rect';
+            document.getElementById('crag-flow-start').className.baseVal = 'edge-path';
+            document.getElementById('crag-flow-grade').className.baseVal = 'edge-path';
+            document.getElementById('crag-flow-search').className.baseVal = 'edge-path';
+            document.getElementById('crag-flow-direct').className.baseVal = 'edge-path';
+            document.getElementById('crag-flow-end').className.baseVal = 'edge-path';
+            document.getElementById('crag-flow-hallucinate').className.baseVal = 'edge-path';
+        }
+
+        // ==========================================
+        // SUBMISSION & RESPONSE DISPATCH
+        // ==========================================
+        async function submitPrompt() {
+            const text = chatInput.value.trim();
+            if (!text || isProcessing) return;
+            
+            isProcessing = true;
+            chatInput.value = '';
+            
+            // Remove splash landing view
+            const splash = document.getElementById('chat-splash');
+            if (splash) splash.remove();
+            
+            // Append User Prompt bubble
+            appendMessage('User Prompt', text, 'user');
+            
+            queryLoader.classList.add('visible');
+            clearGraphVisualStates();
+            graphStateBadge.className = 'status-badge green';
+            graphStateBadge.textContent = 'Running';
+
+            const provider = selectProvider.value;
+            
+            if (currentMode === 'code') {
+                queryLoaderText.textContent = "Initializing Code-Correction StateGraph compiler...";
+                
+                // Highlight flow generate
+                document.getElementById('code-node-generate').className.baseVal = 'node-rect node-active-cyan';
+                document.getElementById('code-flow-start').className.baseVal = 'edge-path edge-active';
+                
+                try {
+                    const res = await fetch('/api/chat/code', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ prompt: text, provider: provider })
+                    });
+                    const data = await res.json();
+                    
+                    if (res.ok) {
+                        renderCodeCompilerResponse(data);
+                    } else {
+                        appendMessage('System Error', data.error || 'Execution crashed.', 'agent');
+                    }
+                } catch (e) {
+                    appendMessage('Network Error', `Flask connection failed: ${e.message}`, 'agent');
+                } finally {
+                    queryLoader.classList.remove('visible');
+                    isProcessing = false;
+                }
+            } else {
+                // CRAG MODE
+                queryLoaderText.textContent = "Initializing Corrective RAG (CRAG) grader pipeline...";
+                
+                // Highlight retrieval
+                document.getElementById('crag-node-retrieve').className.baseVal = 'node-rect node-active-cyan';
+                document.getElementById('crag-flow-start').className.baseVal = 'edge-path edge-active';
+                
+                try {
+                    const res = await fetch('/api/chat/crag', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ query: text, provider: provider })
+                    });
+                    const data = await res.json();
+                    
+                    if (res.ok) {
+                        renderCRAGResponse(data);
+                    } else {
+                        appendMessage('System Error', data.error || 'Execution crashed.', 'agent');
+                    }
+                } catch (e) {
+                    appendMessage('Network Error', `Flask connection failed: ${e.message}`, 'agent');
+                } finally {
+                    queryLoader.classList.remove('visible');
+                    isProcessing = false;
+                }
+            }
+        }
+
+        // ==========================================
+        // DYNAMIC LOG RENDERERS
+        // ==========================================
+        function renderCodeCompilerResponse(data) {
+            clearGraphVisualStates();
+            
+            const msgDiv = document.createElement('div');
+            msgDiv.className = 'message agent';
+            
+            const bubbleDiv = document.createElement('div');
+            bubbleDiv.className = 'bubble';
+            
+            let finalHtml = `
+                <div style="font-size: 1.1rem; color: #fff; font-weight: 600; margin-bottom: 14px; display: flex; align-items: center; gap: 8px;">
+                    🔄 Code-Correction Self-Audit Audit Logs
+                </div>
+            `;
+            
+            // Loop attempts
+            data.attempts.forEach((att) => {
+                const badgeClass = att.is_successful ? 'status-badge green' : 'status-badge red';
+                const badgeText = att.is_successful ? 'Sandbox Success' : 'Sandbox Crash';
+                
+                finalHtml += `
+                    <div class="attempt-header">
+                        <span>Compiler Attempt #${att.iteration}</span>
+                        <span class="${badgeClass}">${badgeText}</span>
+                    </div>
+                    <div class="code-container">${escapeHtml(att.code)}</div>
+                `;
+                
+                if (att.stdout) {
+                    finalHtml += `
+                        <div class="field-label" style="font-size: 0.72rem; margin-bottom: 4px;">Subprocess Console Output (stdout)</div>
+                        <div class="terminal-container">${escapeHtml(att.stdout)}</div>
+                    `;
+                }
+                
+                if (att.stderr) {
+                    finalHtml += `
+                        <div class="field-label" style="font-size: 0.72rem; margin-bottom: 4px; color: var(--color-danger);">Traceback Exception Intercepted (stderr)</div>
+                        <div class="terminal-container error-trace">${escapeHtml(att.stderr)}</div>
+                    `;
+                }
+            });
+            
+            if (data.is_successful) {
+                finalHtml += `
+                    <div style="background: rgba(5, 243, 166, 0.08); border: 1px solid var(--color-success); padding: 14px; border-radius: 12px; color: #fff;">
+                        🎉 <strong>Self-Correction Succeeded!</strong> The agent reflected on the compile exception, isolated the bug, repaired the variable definitions, and successfully verified execution in the compiler subprocess in <strong>${data.attempts.length} attempts</strong>.
+                    </div>
+                `;
+                document.getElementById('code-node-execute').className.baseVal = 'node-rect node-active-green';
+                document.getElementById('code-flow-end').className.baseVal = 'edge-path edge-active';
+                graphStateBadge.className = 'status-badge green';
+                graphStateBadge.textContent = 'Completed';
+            } else {
+                finalHtml += `
+                    <div style="background: rgba(255, 75, 114, 0.08); border: 1px solid var(--color-danger); padding: 14px; border-radius: 12px; color: #fff;">
+                        ❌ <strong>Correction Limit Exceeded.</strong> The code correction loop failed to compile without syntax errors within the active iteration guard limits.
+                    </div>
+                `;
+                document.getElementById('code-node-execute').className.baseVal = 'node-rect node-active-red';
+                graphStateBadge.className = 'status-badge red';
+                graphStateBadge.textContent = 'Failed';
+            }
+            
+            bubbleDiv.innerHTML = finalHtml;
+            
+            const senderSpan = document.createElement('span');
+            senderSpan.className = 'message-sender';
+            senderSpan.textContent = `Agent Compiler • ${new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}`;
+            
+            msgDiv.appendChild(bubbleDiv);
+            msgDiv.appendChild(senderSpan);
+            chatScroller.appendChild(msgDiv);
+            chatScroller.scrollTop = chatScroller.scrollHeight;
+        }
+
+        function renderCRAGResponse(data) {
+            clearGraphVisualStates();
+            
+            const msgDiv = document.createElement('div');
+            msgDiv.className = 'message agent';
+            
+            const bubbleDiv = document.createElement('div');
+            bubbleDiv.className = 'bubble';
+            
+            let finalHtml = `
+                <div style="font-size: 1.1rem; color: #fff; font-weight: 600; margin-bottom: 14px; display: flex; align-items: center; gap: 8px;">
+                    ⚖️ Corrective RAG (CRAG) Grader & Generation Audit logs
+                </div>
+            `;
+            
+            // Steps logs
+            finalHtml += `<div class="field-label" style="font-size: 0.72rem; margin-bottom: 6px;">Execution Audits Trace</div>`;
+            data.steps.forEach((step) => {
+                finalHtml += `
+                    <div style="font-size: 0.8rem; color: var(--text-dim); margin-bottom: 6px; display: flex; align-items: center; gap: 6px;">
+                        <span>🔹</span>
+                        <span>${step}</span>
+                    </div>
+                `;
+            });
+            
+            // Documents Grader Cards
+            finalHtml += `<div class="field-label" style="font-size: 0.72rem; margin-top: 14px; margin-bottom: 8px;">Local Knowledge Grader Rating</div>`;
+            finalHtml += `<div class="grader-grid">`;
+            data.graded_documents.forEach((doc) => {
+                const isRel = doc.score === 'relevant';
+                const badgeClass = isRel ? 'status-badge green' : 'status-badge red';
+                
+                finalHtml += `
+                    <div class="grader-card">
+                        <div class="grader-badge-row">
+                            <strong style="font-size: 0.8rem; color: #fff;">${doc.title}</strong>
+                            <span class="${badgeClass}">${doc.score}</span>
+                        </div>
+                        <p style="font-size: 0.78rem; color: var(--text-dim); line-height: 1.4;">${doc.content}</p>
+                        <div style="font-size: 0.74rem; color: var(--color-accent); font-style: italic;">Grader audit: ${doc.reason}</div>
+                    </div>
+                `;
+            });
+            finalHtml += `</div>`;
+            
+            // Web Search Result Card
+            if (data.web_search_triggered) {
+                finalHtml += `
+                    <div class="search-trigger-card">
+                        <strong style="color: var(--color-warning); font-size: 0.82rem; display: block; margin-bottom: 4px;">🌐 Information Gap Detected! Web Search Triggered</strong>
+                        <p style="font-size: 0.78rem; color: var(--text-dim); line-height: 1.4;">${data.web_results}</p>
+                    </div>
+                `;
+                document.getElementById('crag-node-search').className.baseVal = 'node-rect node-active-purple';
+                document.getElementById('crag-flow-search').className.baseVal = 'edge-path edge-active';
+            } else {
+                document.getElementById('crag-flow-direct').className.baseVal = 'edge-path edge-active';
+            }
+            
+            // Generation response bubble
+            finalHtml += `
+                <div class="field-label" style="font-size: 0.72rem; margin-top: 14px; margin-bottom: 6px;">Synthesized Grounded Response</div>
+                <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--border-glow); padding: 14px; border-radius: 12px; line-height: 1.6; font-size: 0.9rem; color: #fff; margin-bottom: 12px;">
+                    ${data.generation.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')}
+                </div>
+            `;
+            
+            // Self-RAG Hallucination Scoring
+            const isGrounded = data.hallucination_score === 'grounded';
+            const hallBadgeClass = isGrounded ? 'status-badge green' : 'status-badge red';
+            
+            finalHtml += `
+                <div class="grader-badge-row" style="background: rgba(255,255,255,0.01); border: 1px solid var(--border-glow); padding: 10px 14px; border-radius: 10px;">
+                    <span style="font-size: 0.82rem; color: var(--text-dim);">Self-RAG Grounding Audit:</span>
+                    <span class="${hallBadgeClass}">${data.hallucination_score}</span>
+                </div>
+            `;
+            
+            document.getElementById('crag-node-grade').className.baseVal = 'node-rect node-active-green';
+            document.getElementById('crag-node-generate').className.baseVal = 'node-rect node-active-green';
+            document.getElementById('crag-node-hallucination').className.baseVal = 'node-rect node-active-green';
+            document.getElementById('crag-flow-end').className.baseVal = 'edge-path edge-active';
+            
+            graphStateBadge.className = 'status-badge green';
+            graphStateBadge.textContent = 'Completed';
+            
+            bubbleDiv.innerHTML = finalHtml;
+            
+            const senderSpan = document.createElement('span');
+            senderSpan.className = 'message-sender';
+            senderSpan.textContent = `Agent CRAG Engine • ${new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}`;
+            
+            msgDiv.appendChild(bubbleDiv);
+            msgDiv.appendChild(senderSpan);
+            chatScroller.appendChild(msgDiv);
+            chatScroller.scrollTop = chatScroller.scrollHeight;
+        }
+
+        // Helper escape utilities
+        function escapeHtml(text) {
+            return String(text || "")
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+        }
+
+        function appendMessage(sender, content, type) {
+            const msgDiv = document.createElement('div');
+            msgDiv.className = `message ${type}`;
+            
+            const bubbleDiv = document.createElement('div');
+            bubbleDiv.className = 'bubble';
+            bubbleDiv.textContent = content;
+            
+            const senderSpan = document.createElement('span');
+            senderSpan.className = 'message-sender';
+            senderSpan.textContent = `${sender} • ${new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}`;
+            
+            msgDiv.appendChild(bubbleDiv);
+            msgDiv.appendChild(senderSpan);
+            chatScroller.appendChild(msgDiv);
+            chatScroller.scrollTop = chatScroller.scrollHeight;
+        }
+
+        btnSend.addEventListener('click', submitPrompt);
+        chatInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') submitPrompt();
+        });
+    </script>
+</body>
+</html>
